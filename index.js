@@ -1,5 +1,10 @@
 import express from 'express'
-import {  getUser, checkPassword, addSession } from './app/controllers/user.js';
+import {   
+    addUser, 
+    verifyUserPassword,
+    generateSession,
+    getUserFromToken
+} from './app/controllers/user.js';
 
 const app = express()
 
@@ -10,7 +15,7 @@ function logRequest(req, res, next) {
 
 function checkSession(req, res, next) {
     if (req.query.session) {
-        const user = getUser(req.query.session)
+        const user = getUserFromToken(req.query.session)
         if (!user) {
             res.status(400).send({error: "Unknown user"})
             return
@@ -34,9 +39,20 @@ app.get("/private/greeting", (req, res) => {
     res.send("Hello esteemed user " + req.user)
 })
 
-app.post("/login", (req, res) => {
-    if (checkPassword(req.body.accountName, req.body.password)) {
-        const sessionId = addSession(req.body.accountName)
+app.post("/user", async (req, res) => {
+    const account = req.body.accountName
+    const password = req.body.password
+    const result = await addUser(account, password)
+    if (!result) {
+        res.status(406).send()
+        return
+    }
+    res.status(201).send("User added")
+})
+
+app.post("/login", async (req, res) => {
+    if (await verifyUserPassword(req.body.accountName, req.body.password)) {
+        const sessionId = generateSession(req.body.accountName)
         return res.status(200).send({sessionId})
     } else {
         res.status(400).send({error: "Wrong username or password"})
